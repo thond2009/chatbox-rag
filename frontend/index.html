@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG Chatbot System</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h1>RAG Chatbot</h1>
+                <span class="version">v1.0</span>
+            </div>
+            <div class="sidebar-section">
+                <h3>Nạp tài liệu</h3>
+                <div class="upload-area" id="uploadArea">
+                    <input type="file" id="fileInput" accept=".pdf,.md,.txt,.html,.htm" hidden>
+                    <div class="upload-content">
+                        <span class="upload-icon">+</span>
+                        <span>Kéo thả file vào đây<br>hoặc click để chọn</span>
+                        <span class="upload-hint">PDF, MD, TXT, HTML</span>
+                    </div>
+                </div>
+                <div id="uploadStatus" class="upload-status"></div>
+            </div>
+            <div class="sidebar-section">
+                <h3>Tài liệu đã nạp</h3>
+                <div id="documentList" class="document-list">
+                    <div class="empty-state">Chưa có tài liệu nào</div>
+                </div>
+            </div>
+            <div class="sidebar-footer">
+                <button id="newChatBtn" class="btn-secondary">+ Chat mới</button>
+            </div>
+        </aside>
+
+        <main class="chat-container">
+            <div class="chat-header">
+                <div class="chat-title">Chat với tài liệu của bạn</div>
+                <div class="chat-status" id="chatStatus">
+                    <span class="status-indicator" id="statusDot"></span>
+                    <span id="statusText">Sẵn sàng</span>
+                </div>
+            </div>
+
+            <div class="chat-messages" id="chatMessages">
+                <div class="welcome-message">
+                    <div class="welcome-icon">?</div>
+                    <h2>Xin chào!</h2>
+                    <p>Hãy nạp tài liệu và đặt câu hỏi. Tôi sẽ trả lời dựa trên nội dung tài liệu của bạn.</p>
+                    <div class="suggestions">
+                        <span class="suggestion-chip">Tài liệu này nói về gì?</span>
+                        <span class="suggestion-chip">Tóm tắt nội dung chính</span>
+                        <span class="suggestion-chip">Các điểm quan trọng</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chat-input-area">
+                <div class="input-container">
+                    <textarea id="chatInput" placeholder="Nhập câu hỏi của bạn..." rows="1"></textarea>
+                    <button id="sendBtn" class="btn-send" disabled>
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                            <path d="M2 10l16-8-8 16-2-6-6-2z" fill="currentColor"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="input-footer">
+                    <span id="processingTime"></span>
+                    <span class="input-hint">Enter để gửi, Shift+Enter để xuống dòng</span>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="/script.js"></script>
+</body>
+</html>
