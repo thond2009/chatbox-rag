@@ -20,7 +20,6 @@ services:
       - "8000:8000"
     environment:
       - QDRANT_URL=http://qdrant:6333
-      - LLM_API_KEY=${LLM_API_KEY:-}
       - LLM_BASE_URL=${LLM_BASE_URL:-https://api.deepseek.com}
       - LLM_MODEL=${LLM_MODEL:-deepseek-chat}
       - EMBEDDING_PROVIDER=${EMBEDDING_PROVIDER:-local}
@@ -29,6 +28,7 @@ services:
       - RERANKER_MODEL=${RERANKER_MODEL:-BAAI/bge-reranker-v2-m3}
     volumes:
       - ./backend:/app
+      - ./frontend:/frontend:ro
       - uploads_data:/app/uploads
       - hf_cache:/root/.cache/huggingface
     depends_on:

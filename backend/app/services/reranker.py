@@ -1,4 +1,5 @@
 import logging
+import threading
 from typing import List, Tuple, Dict, Optional
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import torch
@@ -23,17 +24,27 @@ class RerankerService:
         self.tokenizer = None
         self.model = None
         self.device = "cpu"
-        try:
-            self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-            self.model = AutoModelForSequenceClassification.from_pretrained(self.model_name)
-            if torch.cuda.is_available():
-                self.device = "cuda"
-                self.model = self.model.cuda()
-            self.model.eval()
-            logger.info(f"Loaded reranker model: {self.model_name} on {self.device}")
-        except Exception as e:
-            logger.warning(f"Could not load reranker model: {e}. Reranking disabled.")
+        self._model_loaded = False
+        self._lock = threading.Lock()
         self._initialized = True
+
+    def _ensure_model(self):
+        if self._model_loaded:
+            return
+        with self._lock:
+            if self._model_loaded:
+                return
+            try:
+                self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+                self.model = AutoModelForSequenceClassification.from_pretrained(self.model_name)
+                if torch.cuda.is_available():
+                    self.device = "cuda"
+                    self.model = self.model.cuda()
+                self.model.eval()
+                logger.info(f"Loaded reranker model: {self.model_name} on {self.device}")
+            except Exception as e:
+                logger.warning(f"Could not load reranker model: {e}. Reranking disabled.")
+            self._model_loaded = True
 
     def rerank(
         self,
@@ -41,6 +52,7 @@ class RerankerService:
         documents: List[Tuple[Dict, float]],
         top_k: Optional[int] = None,
     ) -> List[Tuple[Dict, float]]:
+        self._ensure_model()
         if top_k is None:
             top_k = settings.RERANKER_TOP_K
 

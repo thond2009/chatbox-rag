@@ -1,4 +1,5 @@
 import uuid
+import time
 import logging
 from typing import List, Optional, Dict, Tuple
 from qdrant_client import QdrantClient
@@ -9,6 +10,9 @@ from app.models.document import DocumentChunk
 from app.services.embedder import embedder_service
 
 logger = logging.getLogger(__name__)
+
+MAX_RETRIES = 5
+RETRY_BASE_DELAY = 2
 
 
 class VectorStore:
@@ -23,10 +27,32 @@ class VectorStore:
     def __init__(self):
         if self._initialized:
             return
-        self.client = QdrantClient(url=settings.QDRANT_URL)
+        self.qdrant_url = settings.QDRANT_URL
         self.collection_name = settings.QDRANT_COLLECTION
-        self._ensure_collection()
+        self.client = None
         self._initialized = True
+
+    def _ensure_connected(self):
+        if self.client is not None:
+            return
+
+        for attempt in range(MAX_RETRIES):
+            try:
+                self.client = QdrantClient(url=self.qdrant_url)
+                self._ensure_collection()
+                return
+            except Exception as e:
+                self.client = None
+                if attempt < MAX_RETRIES - 1:
+                    wait = RETRY_BASE_DELAY ** (attempt + 1)
+                    logger.warning(
+                        f"Qdrant connection failed (attempt {attempt+1}/{MAX_RETRIES}), "
+                        f"retrying in {wait}s: {e}"
+                    )
+                    time.sleep(wait)
+                else:
+                    logger.error(f"Failed to connect to Qdrant after {MAX_RETRIES} attempts")
+                    raise
 
     def _ensure_collection(self):
         collections = self.client.get_collections()
@@ -52,6 +78,7 @@ class VectorStore:
             )
 
     def upsert_chunks(self, document_id: str, chunks: List[DocumentChunk]) -> int:
+        self._ensure_connected()
         if not chunks:
             return 0
 
@@ -87,6 +114,7 @@ class VectorStore:
         top_k: int = 20,
         filter_dict: Optional[Dict] = None,
     ) -> List[Tuple[Dict, float]]:
+        self._ensure_connected()
         query_filter = None
         if filter_dict:
             must_conditions = []
@@ -95,9 +123,9 @@ class VectorStore:
             if must_conditions:
                 query_filter = Filter(must=must_conditions)
 
-        results = self.client.search(
+        response = self.client.query_points(
             collection_name=self.collection_name,
-            query_vector=query_embedding,
+            query=query_embedding,
             limit=top_k,
             query_filter=query_filter,
             with_payload=True,
@@ -105,7 +133,7 @@ class VectorStore:
 
         return [
             (hit.payload, hit.score)
-            for hit in results
+            for hit in response.points
             if hit.payload is not None
         ]
 
@@ -115,6 +143,7 @@ class VectorStore:
         top_k: int = 20,
         filter_dict: Optional[Dict] = None,
     ) -> List[Tuple[Dict, float]]:
+        self._ensure_connected()
         query_tokens = query.lower().split()
         all_points, _ = self.client.scroll(
             collection_name=self.collection_name,
@@ -136,6 +165,7 @@ class VectorStore:
         return scored[:top_k]
 
     def delete_by_document_id(self, document_id: str) -> bool:
+        self._ensure_connected()
         self.client.delete(
             collection_name=self.collection_name,
             points_selector=Filter(
@@ -146,6 +176,7 @@ class VectorStore:
         return True
 
     def list_documents(self) -> List[dict]:
+        self._ensure_connected()
         all_points, _ = self.client.scroll(
             collection_name=self.collection_name,
             limit=10000,
@@ -168,11 +199,12 @@ class VectorStore:
         return list(docs_map.values())
 
     def get_collection_info(self) -> dict:
+        self._ensure_connected()
         info = self.client.get_collection(self.collection_name)
         return {
             "name": self.collection_name,
-            "vectors_count": info.vectors_count,
             "points_count": info.points_count,
+            "indexed_vectors_count": info.indexed_vectors_count,
         }
 
 

@@ -1,4 +1,5 @@
 import logging
+import threading
 from typing import List, Optional
 from app.config import settings
 
@@ -11,13 +12,22 @@ class EmbedderService:
         self._model = None
         self._dimension = settings.EMBEDDING_DIM
         self._api_client = None
+        self._model_loaded = False
+        self._lock = threading.Lock()
 
-        if self.provider == "local":
-            self._init_local()
-        elif self.provider == "api":
-            self._init_api()
-        else:
-            raise ValueError(f"Unknown embedding provider: {self.provider}. Use 'local' or 'api'.")
+    def _ensure_model(self):
+        if self._model_loaded:
+            return
+        with self._lock:
+            if self._model_loaded:
+                return
+            if self.provider == "local":
+                self._init_local()
+            elif self.provider == "api":
+                self._init_api()
+            else:
+                raise ValueError(f"Unknown embedding provider: {self.provider}. Use 'local' or 'api'.")
+            self._model_loaded = True
 
     def _init_local(self):
         try:
@@ -48,6 +58,7 @@ class EmbedderService:
         return self._dimension
 
     def embed_texts(self, texts: List[str]) -> List[List[float]]:
+        self._ensure_model()
         if not texts:
             return []
 
@@ -74,6 +85,7 @@ class EmbedderService:
         return [r.embedding for r in response.data]
 
     def embed_text(self, text: str) -> List[float]:
+        self._ensure_model()
         embeddings = self.embed_texts([text])
         return embeddings[0] if embeddings else []
 
