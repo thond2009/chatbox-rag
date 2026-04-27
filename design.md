@@ -1,23 +1,23 @@
-# Tài liệu Thiết kế Dự án Chi tiết: Hệ thống RAG Chatbot
+# Detailed Project Design: RAG Chatbot System
 
-## 1. Tổng quan dự án (Project Overview)
-Dự án hướng tới việc xây dựng một hệ thống RAG (Retrieval-Augmented Generation) cấp độ production. Hệ thống không chỉ trả lời câu hỏi dựa trên dữ liệu tĩnh mà còn phải đảm bảo tính mở rộng, khả năng truy xuất chính xác cao và tích hợp quy trình kiểm thử tự động.
+## 1. Project Overview
+This project aims to build a production-grade RAG (Retrieval-Augmented Generation) system. The system not only answers questions based on static data but also ensures scalability, high retrieval accuracy, and integration of automated testing pipelines.
 
-### 1.1. Mục tiêu (Objectives)
-- Xử lý đa dạng định dạng tài liệu đầu vào (PDF, Markdown, HTML, TXT).
-- Giảm thiểu tối đa hiện tượng Hallucination (ảo giác) của LLM.
-- Thời gian phản hồi (Latency) cho mỗi luồng truy vấn < 3 giây.
-- Hỗ trợ ngữ cảnh hội thoại (Chat History) để có thể hỏi đáp nối tiếp.
+### 1.1. Objectives
+- Handle multiple document input formats (PDF, Markdown, HTML, TXT).
+- Minimize LLM hallucination as much as possible.
+- Response latency per query pipeline < 3 seconds.
+- Support conversational context (Chat History) for follow-up Q&A.
 
-### 1.2. Phạm vi (Scope)
-- **In-scope:** Xây dựng API backend xử lý logic RAG, Vector DB, module tích hợp dữ liệu (Ingestion module), và giao diện UI cơ bản.
-- **Out-of-scope:** Tự fine-tune LLM model (chỉ sử dụng LLM qua API).
+### 1.2. Scope
+- **In-scope:** Build backend API handling RAG logic, Vector DB, data ingestion module, and a basic UI.
+- **Out-of-scope:** Self fine-tuning LLM models (uses LLM via API only).
 
 ---
 
-## 2. Kiến trúc Hệ thống (System Architecture)
+## 2. System Architecture
 
-Kiến trúc được chia thành hai luồng chính: **Offline (Nạp dữ liệu)** và **Online (Truy vấn theo thời gian thực)**.
+The architecture is divided into two main pipelines: **Offline (Data Ingestion)** and **Online (Real-time Query)**.
 
 ```mermaid
 graph TD
@@ -41,86 +41,86 @@ graph TD
 
 ---
 
-## 3. Lựa chọn Công nghệ (Tech Stack)
+## 3. Tech Stack
 
-| Lớp (Layer) | Công cụ đề xuất | Lý do lựa chọn |
+| Layer | Recommended Tool | Rationale |
 | :--- | :--- | :--- |
-| **Ngôn ngữ & Framework** | Python 3.10+, FastAPI, LlamaIndex/LangChain | FastAPI cho API hiệu năng cao, LlamaIndex mạnh mẽ cho Data framework. |
-| **Document Loaders** | Unstructured, PyMuPDF | Trích xuất text tốt nhất cho PDF, giữ nguyên cấu trúc bảng biểu. |
-| **Embedding Model** | `text-embedding-3-small` (OpenAI) hoặc `BAAI/bge-m3` | Hỗ trợ đa ngôn ngữ (đặc biệt là tiếng Việt), tốc độ nhúng nhanh. |
-| **Vector Database** | Qdrant hoặc Milvus | Hỗ trợ Hybrid Search (Dense + Sparse vector) tốt hơn ChromaDB. |
-| **Re-ranking** | `bge-reranker-large` hoặc Cohere Rerank API | Tăng độ chính xác của Top-K document được truy xuất. |
-| **LLM** | GPT-4o-mini hoặc Claude 3.5 Haiku | Tối ưu giữa chi phí, tốc độ và khả năng suy luận logic. |
+| **Language & Framework** | Python 3.10+, FastAPI, LlamaIndex/LangChain | FastAPI for high-performance APIs, LlamaIndex as a powerful data framework. |
+| **Document Loaders** | Unstructured, PyMuPDF | Best text extraction from PDFs, preserves table structures. |
+| **Embedding Model** | `text-embedding-3-small` (OpenAI) or `BAAI/bge-m3` | Multilingual support (especially Vietnamese), fast embedding speed. |
+| **Vector Database** | Qdrant or Milvus | Supports Hybrid Search (Dense + Sparse vectors) better than ChromaDB. |
+| **Re-ranking** | `bge-reranker-large` or Cohere Rerank API | Increases retrieval accuracy of Top-K documents. |
+| **LLM** | GPT-4o-mini or Claude 3.5 Haiku | Optimal balance of cost, speed, and reasoning capability. |
 
 ---
 
-## 4. Chi tiết Quy trình Nạp dữ liệu (Data Ingestion Pipeline)
+## 4. Data Ingestion Pipeline Detail
 
-### 4.1. Tiền xử lý (Preprocessing)
-- Loại bỏ các ký tự ẩn, chuẩn hóa unicode.
-- Trích xuất Metadata quan trọng (Tác giả, Ngày tạo, Tên file, Category) để hỗ trợ **Metadata Filtering** khi tìm kiếm.
+### 4.1. Preprocessing
+- Remove hidden characters, normalize unicode.
+- Extract key metadata (Author, Creation Date, File Name, Category) to support **Metadata Filtering** during search.
 
-### 4.2. Chiến lược Chunking Nâng cao
-Thay vì chỉ cắt theo số lượng từ (Fixed-size), dự án sẽ kết hợp:
-- **Semantic Chunking:** Cắt theo ý nghĩa câu/đoạn (sử dụng NLTK hoặc spacy).
-- **Parent-Child Chunking:** Lưu các chunk nhỏ (Child) để lấy embedding cho chính xác, nhưng khi LLM cần context thì sẽ trả về chunk lớn hơn (Parent) bao quanh chunk nhỏ đó để giữ trọn vẹn ngữ cảnh.
+### 4.2. Advanced Chunking Strategy
+Instead of only fixed-size splitting, the project combines:
+- **Semantic Chunking:** Split by sentence/paragraph meaning (using NLTK or spaCy).
+- **Parent-Child Chunking:** Store small chunks (Child) for accurate embedding, but when the LLM needs context, return a larger chunk (Parent) surrounding the child to preserve full context.
 
 ---
 
-## 5. Chi tiết Quy trình Truy vấn (Advanced Retrieval Pipeline)
+## 5. Advanced Retrieval Pipeline Detail
 
-Để đảm bảo kết quả truy xuất tốt nhất, luồng truy xuất không chỉ dùng Vector Search cơ bản:
+To ensure the best retrieval results, the pipeline goes beyond basic vector search:
 
 1. **Query Transformation:**
-   - Dùng một LLM nhỏ để viết lại câu hỏi của người dùng (Query Rewriting) cho rõ nghĩa hơn.
-   - Nếu câu hỏi yêu cầu ngữ cảnh cũ, kết hợp *Chat History* để tạo ra một câu hỏi độc lập (Standalone Query).
+   - Uses a lightweight LLM to rewrite the user's question (Query Rewriting) for better clarity.
+   - If the question requires prior context, combines *Chat History* to generate a standalone query.
 2. **Hybrid Search:**
-   - Kết hợp **Vector Search** (tìm ý nghĩa ngữ nghĩa) và **Keyword Search (BM25)** (tìm chính xác từ khóa, mã lỗi, tên riêng).
-3. **Re-ranking (Sắp xếp lại):**
-   - Hybrid search trả về Top 20 tài liệu. Đưa 20 tài liệu này qua mô hình Cross-Encoder (Reranker) để chấm điểm lại mức độ liên quan và chỉ lấy Top 5 tài liệu đưa vào LLM.
+   - Combines **Vector Search** (semantic meaning search) and **Keyword Search (BM25)** (exact keyword, error codes, proper names).
+3. **Re-ranking:**
+   - Hybrid search returns the Top 20 documents. Pass these 20 documents through a Cross-Encoder (Reranker) to re-score relevance and take only the Top 5 documents to feed into the LLM.
 
 ---
 
-## 6. Prompt Engineering & Quản lý Bộ nhớ (Memory)
+## 6. Prompt Engineering & Memory Management
 
 ### 6.1. System Prompt
 ```text
-Bạn là chuyên gia kỹ thuật hỗ trợ dự án. Nhiệm vụ của bạn là trả lời câu hỏi dựa TRÊN CÁC TÀI LIỆU được cung cấp dưới đây.
+You are a technical expert assisting the project. Your task is to answer questions based SOLELY ON THE DOCUMENTS provided below.
 
-RÀNG BUỘC:
-1. NẾU thông tin KHÔNG có trong tài liệu, hãy trả lời chính xác: "Dữ liệu hiện tại không chứa thông tin này." Không tự suy diễn.
-2. Trích dẫn nguồn (tên file hoặc số trang) sau mỗi luận điểm nếu có.
-3. Trình bày bằng Markdown, sử dụng bullet points để dễ đọc.
+CONSTRAINTS:
+1. IF the information is NOT in the documents, respond exactly: "The current data does not contain this information." Do not speculate.
+2. Cite sources (file name or page number) after each point if available.
+3. Format using Markdown, use bullet points for readability.
 
 ---
-TÀI LIỆU TRUY XUẤT:
+RETRIEVED DOCUMENTS:
 {context}
 
 ---
-LỊCH SỬ TRÒ CHUYỆN:
+CHAT HISTORY:
 {chat_history}
 
 ---
-CÂU HỎI HIỆN TẠI: {question}
+CURRENT QUESTION: {question}
 ```
 
 ---
 
-## 7. Đảm bảo chất lượng & Kiểm thử tự động (LLMOps & Testing)
+## 7. Quality Assurance & Automated Testing (LLMOps)
 
-Để đưa vào môi trường thực tế, hệ thống cần có cơ chế kiểm thử tự động cho 파 pipelnie AI:
+To deploy in a real environment, the system needs automated AI pipeline testing:
 
-- **Khung đánh giá:** Tích hợp **RAGAS** hoặc **TruLens** vào quy trình CI/CD.
-- **Các metric cần đo đạc:**
-  - *Context Precision:* Đo lường xem tài liệu truy xuất có thực sự giải quyết được câu hỏi không.
-  - *Context Recall:* Hệ thống có lấy sót thông tin quan trọng trong Database không.
-  - *Faithfulness:* Output của LLM có bịa đặt (hallucinate) so với context được cấp hay không.
-- **Tự động hóa:** Thiết lập script Python chạy bộ test case (ground truth dataset) mỗi khi có thay đổi về thuật toán chunking hoặc đổi mô hình embedding.
+- **Evaluation Framework:** Integrate **RAGAS** or **TruLens** into the CI/CD pipeline.
+- **Metrics to measure:**
+  - *Context Precision:* Measures whether the retrieved documents actually answer the question.
+  - *Context Recall:* Whether the system missed important information in the database.
+  - *Faithfulness:* Whether the LLM output hallucinates relative to the provided context.
+- **Automation:** Set up a Python script to run test cases (ground truth dataset) whenever there are changes to the chunking algorithm or embedding model swap.
 
 ---
 
-## 8. Triển khai (Deployment)
+## 8. Deployment
 
-- **Backend Containerization:** Đóng gói FastAPI backend bằng Docker.
-- **CI/CD:** Sử dụng GitHub Actions để tự động build image và chạy các bài test RAGAS.
-- **Monitoring:** Theo dõi token usage, latency và lưu lại các câu hỏi bị LLM trả lời "Không biết" để bổ sung thêm dữ liệu (Data Flywheel).
+- **Backend Containerization:** Package the FastAPI backend using Docker.
+- **CI/CD:** Use GitHub Actions to automatically build images and run RAGAS tests.
+- **Monitoring:** Track token usage, latency, and log questions that the LLM answers with "Unknown" to supplement additional data (Data Flywheel).
