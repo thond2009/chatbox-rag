@@ -11,7 +11,7 @@ class ChatMessage(BaseModel):
 
 class ChatRequest(BaseModel):
     session_id: Optional[str] = Field(default_factory=lambda: str(uuid4()))
-    query: str = Field(..., min_length=1, description="User's question")
+    query: str = Field(..., min_length=1, max_length=2000, description="User's question")
     top_k: int = Field(default=5, ge=1, le=20, description="Number of documents to retrieve")
 
 

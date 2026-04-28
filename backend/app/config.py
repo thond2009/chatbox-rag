@@ -38,6 +38,8 @@ class Settings(BaseSettings):
 
     CORS_ORIGINS: list = ["*"]
 
+    API_KEY: str = os.getenv("API_KEY", "")
+
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
 
     UPLOAD_DIR: str = os.getenv("UPLOAD_DIR", "./uploads")

@@ -1,16 +1,17 @@
 import os
 import logging
 import uuid
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
 from typing import Optional
 from app.config import settings
 from app.services.document_loader import load_document, detect_file_type
 from app.services.chunker import chunk_document
 from app.services.vector_store import vector_store
 from app.models.schemas import IngestionResponse, ListDocumentsResponse, DeleteDocumentRequest
+from app.utils.auth import require_api_key
 
 logger = logging.getLogger(__name__)
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_api_key)])
 
 
 @router.post("/ingest", response_model=IngestionResponse)
@@ -18,6 +19,8 @@ async def ingest_document(
     file: UploadFile = File(...),
     file_type: Optional[str] = Form("auto"),
 ):
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Filename is required")
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
 
     if file_type == "auto":
@@ -89,10 +92,12 @@ async def delete_document(document_id: str):
 
 @router.post("/ingest/text", response_model=IngestionResponse)
 async def ingest_text(
-    content: str = Form(...),
+    content: str = Form(..., max_length=1_000_000),
     file_name: str = Form("manual_input.txt"),
     file_type: str = Form("txt"),
 ):
+    if not content.strip():
+        raise HTTPException(status_code=400, detail="Content must not be empty")
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
     file_path = os.path.join(settings.UPLOAD_DIR, f"{uuid.uuid4().hex}.txt")
 

@@ -1,15 +1,16 @@
 import time
 import logging
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from app.models.schemas import ChatRequest, ChatResponse, SourceDocument
 from app.services.query_rewriter import query_rewriter
 from app.services.retriever import hybrid_search
 from app.services.reranker import reranker_service
 from app.services.llm_service import llm_service
 from app.services.chat_memory import chat_memory
+from app.utils.auth import require_api_key
 
 logger = logging.getLogger(__name__)
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_api_key)])
 
 
 @router.post("/chat", response_model=ChatResponse)
